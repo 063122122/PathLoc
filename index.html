@@ -1,0 +1,2057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a1a1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>PathMem</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0d0d0d;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #252525;
+            --text-primary: #f0f0f0;
+            --text-secondary: #888;
+            --text-muted: #555;
+            --accent: #4ade80;
+            --accent-dim: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --border: #333;
+            --font-display: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: var(--font-display);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            touch-action: manipulation;
+        }
+
+        .app {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .logo span {
+            color: var(--accent);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+
+        .status-dot.active {
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 14px;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .nav-tab.active {
+            color: var(--accent);
+        }
+
+        .nav-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 20%;
+            width: 60%;
+            height: 2px;
+            background: var(--accent);
+        }
+
+        /* Main Content */
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .view {
+            display: none;
+            padding: 20px;
+            min-height: 100%;
+        }
+
+        .view.active {
+            display: block;
+        }
+
+        /* Record View */
+        .record-view {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 30px;
+            padding-top: 40px;
+        }
+
+        .record-btn {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            border: 3px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: var(--font-display);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .record-btn svg {
+            width: 32px;
+            height: 32px;
+        }
+
+        .record-btn:hover {
+            border-color: var(--accent);
+            transform: scale(1.02);
+        }
+
+        .record-btn.recording {
+            border-color: var(--danger);
+            background: rgba(239, 68, 68, 0.1);
+            animation: recording-pulse 1.5s infinite;
+        }
+
+        @keyframes recording-pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); }
+        }
+
+        .record-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            width: 100%;
+            max-width: 320px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-family: var(--font-mono);
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+
+        .gps-accuracy {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            padding: 8px 16px;
+            background: var(--bg-tertiary);
+            border-radius: 20px;
+        }
+
+        .gps-accuracy.good { color: var(--accent); }
+        .gps-accuracy.medium { color: var(--warning); }
+        .gps-accuracy.poor { color: var(--danger); }
+
+        /* Routes View */
+        .routes-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .routes-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .routes-count {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .route-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .route-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .route-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .route-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .route-name {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .route-date {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .route-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .route-meta span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .empty-state p {
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        /* Navigate View */
+        .navigate-view {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .destination-selector {
+            margin-bottom: 20px;
+        }
+
+        .destination-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .destination-dropdown {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-family: var(--font-display);
+            font-size: 1rem;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6,9 12,15 18,9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+        }
+
+        .destination-dropdown:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .compass-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+        }
+
+        .compass {
+            width: 240px;
+            height: 240px;
+            border-radius: 50%;
+            border: 3px solid var(--border);
+            background: var(--bg-secondary);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .compass-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+        }
+
+        .compass-arrow {
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-bottom: 100px solid var(--accent);
+            filter: drop-shadow(0 0 10px var(--accent));
+            transition: transform 0.3s ease-out;
+            transform-origin: center 70%;
+        }
+
+        .compass-center {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--bg-primary);
+            border: 3px solid var(--accent);
+        }
+
+        .compass-directions {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .compass-directions span {
+            position: absolute;
+        }
+
+        .compass-directions .n { top: 12px; left: 50%; transform: translateX(-50%); color: var(--text-secondary); }
+        .compass-directions .e { right: 12px; top: 50%; transform: translateY(-50%); }
+        .compass-directions .s { bottom: 12px; left: 50%; transform: translateX(-50%); }
+        .compass-directions .w { left: 12px; top: 50%; transform: translateY(-50%); }
+
+        .nav-info {
+            text-align: center;
+        }
+
+        .nav-distance {
+            font-family: var(--font-mono);
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .nav-distance-unit {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-left: 4px;
+        }
+
+        .nav-destination {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .nav-eta {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        .no-destination {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Places View */
+        .places-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .add-place-btn {
+            padding: 10px 16px;
+            background: var(--accent);
+            color: var(--bg-primary);
+            border: none;
+            border-radius: 8px;
+            font-family: var(--font-display);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .add-place-btn:hover {
+            background: var(--accent-dim);
+        }
+
+        .place-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .place-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 16px;
+        }
+
+        .place-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .place-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: var(--bg-tertiary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .place-icon svg {
+            width: 18px;
+            height: 18px;
+            color: var(--accent);
+        }
+
+        .place-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .place-routes {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .place-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .place-action-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .place-action-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .place-action-btn.danger:hover {
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            width: 100%;
+            max-width: 360px;
+        }
+
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-family: var(--font-display);
+            font-size: 1rem;
+            margin-bottom: 20px;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .modal-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 14px;
+            border-radius: 10px;
+            border: none;
+            font-family: var(--font-display);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-btn.primary {
+            background: var(--accent);
+            color: var(--bg-primary);
+        }
+
+        .modal-btn.secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 24px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 200;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            border-color: var(--accent);
+        }
+
+        .toast.error {
+            border-color: var(--danger);
+        }
+
+        /* Permission Prompt */
+        .permission-prompt {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: var(--bg-primary);
+            z-index: 300;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .permission-prompt.active {
+            display: flex;
+        }
+
+        .permission-prompt svg {
+            width: 80px;
+            height: 80px;
+            color: var(--accent);
+            margin-bottom: 30px;
+        }
+
+        .permission-prompt h2 {
+            font-size: 1.4rem;
+            margin-bottom: 16px;
+        }
+
+        .permission-prompt p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            max-width: 300px;
+        }
+
+        .permission-btn {
+            padding: 16px 48px;
+            background: var(--accent);
+            color: var(--bg-primary);
+            border: none;
+            border-radius: 12px;
+            font-family: var(--font-display);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Utility */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Permission Prompt -->
+    <div class="permission-prompt" id="permissionPrompt">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polygon points="12,6 12,12 16,14"/>
+        </svg>
+        <h2>Enable Location</h2>
+        <p>PathMem needs access to your location to record routes and guide you to saved places.</p>
+        <button class="permission-btn" id="grantPermission">Enable Location</button>
+    </div>
+
+    <!-- Main App -->
+    <div class="app">
+        <header class="header">
+            <div class="logo">Path<span>Mem</span></div>
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Ready</span>
+            </div>
+        </header>
+
+        <nav class="nav-tabs">
+            <button class="nav-tab active" data-view="record">Record</button>
+            <button class="nav-tab" data-view="navigate">Navigate</button>
+            <button class="nav-tab" data-view="routes">Routes</button>
+            <button class="nav-tab" data-view="places">Places</button>
+        </nav>
+
+        <main class="content">
+            <!-- Record View -->
+            <div class="view active" id="recordView">
+                <div class="record-view">
+                    <div class="gps-accuracy" id="gpsAccuracy">GPS: Waiting...</div>
+                    
+                    <button class="record-btn" id="recordBtn">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="12" cy="12" r="8"/>
+                        </svg>
+                        <span id="recordBtnText">Start</span>
+                    </button>
+
+                    <div class="record-stats">
+                        <div class="stat">
+                            <div class="stat-value" id="statDistance">0.0</div>
+                            <div class="stat-label">km</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="statDuration">0:00</div>
+                            <div class="stat-label">Time</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="statPoints">0</div>
+                            <div class="stat-label">Points</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigate View -->
+            <div class="view" id="navigateView">
+                <div class="navigate-view">
+                    <div class="destination-selector">
+                        <div class="destination-label">Navigate to</div>
+                        <select class="destination-dropdown" id="destinationSelect">
+                            <option value="">Select a destination...</option>
+                        </select>
+                    </div>
+
+                    <div class="compass-container" id="compassContainer">
+                        <div class="no-destination" id="noDestination">
+                            Select a destination to start navigation
+                        </div>
+                        
+                        <div class="compass hidden" id="compass">
+                            <div class="compass-directions">
+                                <span class="n">N</span>
+                                <span class="e">E</span>
+                                <span class="s">S</span>
+                                <span class="w">W</span>
+                            </div>
+                            <div class="compass-arrow" id="compassArrow"></div>
+                            <div class="compass-center"></div>
+                        </div>
+
+                        <div class="nav-info hidden" id="navInfo">
+                            <div class="nav-distance">
+                                <span id="navDistanceValue">0.0</span>
+                                <span class="nav-distance-unit" id="navDistanceUnit">km</span>
+                            </div>
+                            <div class="nav-destination" id="navDestination">--</div>
+                            <div class="nav-eta" id="navEta">ETA: --</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Routes View -->
+            <div class="view" id="routesView">
+                <div class="routes-header">
+                    <span class="routes-title">Saved Routes</span>
+                    <span class="routes-count" id="routesCount">0 routes</span>
+                </div>
+                <div class="route-list" id="routeList">
+                    <div class="empty-state" id="routesEmpty">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2L12 22M2 12L22 12M5 5L19 19M19 5L5 19"/>
+                        </svg>
+                        <p>No routes recorded yet.<br>Start walking to build your personal map!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Places View -->
+            <div class="view" id="placesView">
+                <div class="places-header">
+                    <span class="routes-title">Saved Places</span>
+                    <button class="add-place-btn" id="addPlaceBtn">+ Add Current</button>
+                </div>
+                <div class="place-list" id="placeList">
+                    <div class="empty-state" id="placesEmpty">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                            <circle cx="12" cy="10" r="3"/>
+                        </svg>
+                        <p>No places saved yet.<br>Add your frequently visited locations!</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Save Route Modal -->
+    <div class="modal-overlay" id="saveRouteModal">
+        <div class="modal">
+            <h3 class="modal-title">Save Route</h3>
+            <input type="text" class="modal-input" id="routeNameInput" placeholder="Route name (e.g., Home to Work)">
+            <div class="modal-buttons">
+                <button class="modal-btn secondary" id="cancelSaveRoute">Cancel</button>
+                <button class="modal-btn primary" id="confirmSaveRoute">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Place Modal -->
+    <div class="modal-overlay" id="savePlaceModal">
+        <div class="modal">
+            <h3 class="modal-title">Save This Place</h3>
+            <input type="text" class="modal-input" id="placeNameInput" placeholder="Place name (e.g., Home, Work, Gym)">
+            <div class="modal-buttons">
+                <button class="modal-btn secondary" id="cancelSavePlace">Cancel</button>
+                <button class="modal-btn primary" id="confirmSavePlace">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ============================================
+        // PathMem - Personal Route Intelligence System
+        // ============================================
+
+        // Database Configuration
+        const DB_NAME = 'PathMemDB';
+        const DB_VERSION = 1;
+        let db = null;
+
+        // App State
+        const state = {
+            isRecording: false,
+            currentRoute: [],
+            recordingStartTime: null,
+            watchId: null,
+            compassWatchId: null,
+            currentPosition: null,
+            deviceHeading: null,
+            selectedDestination: null,
+            places: [],
+            routes: [],
+            routeMesh: null
+        };
+
+        // DOM Elements
+        const elements = {
+            permissionPrompt: document.getElementById('permissionPrompt'),
+            grantPermission: document.getElementById('grantPermission'),
+            statusDot: document.getElementById('statusDot'),
+            statusText: document.getElementById('statusText'),
+            gpsAccuracy: document.getElementById('gpsAccuracy'),
+            recordBtn: document.getElementById('recordBtn'),
+            recordBtnText: document.getElementById('recordBtnText'),
+            statDistance: document.getElementById('statDistance'),
+            statDuration: document.getElementById('statDuration'),
+            statPoints: document.getElementById('statPoints'),
+            destinationSelect: document.getElementById('destinationSelect'),
+            compass: document.getElementById('compass'),
+            compassArrow: document.getElementById('compassArrow'),
+            navInfo: document.getElementById('navInfo'),
+            noDestination: document.getElementById('noDestination'),
+            navDistanceValue: document.getElementById('navDistanceValue'),
+            navDistanceUnit: document.getElementById('navDistanceUnit'),
+            navDestination: document.getElementById('navDestination'),
+            navEta: document.getElementById('navEta'),
+            routeList: document.getElementById('routeList'),
+            routesCount: document.getElementById('routesCount'),
+            routesEmpty: document.getElementById('routesEmpty'),
+            placeList: document.getElementById('placeList'),
+            placesEmpty: document.getElementById('placesEmpty'),
+            addPlaceBtn: document.getElementById('addPlaceBtn'),
+            saveRouteModal: document.getElementById('saveRouteModal'),
+            savePlaceModal: document.getElementById('savePlaceModal'),
+            routeNameInput: document.getElementById('routeNameInput'),
+            placeNameInput: document.getElementById('placeNameInput'),
+            toast: document.getElementById('toast')
+        };
+
+        // ============================================
+        // IndexedDB Setup
+        // ============================================
+
+        async function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    db = request.result;
+                    resolve(db);
+                };
+
+                request.onupgradeneeded = (event) => {
+                    const database = event.target.result;
+
+                    // Routes store
+                    if (!database.objectStoreNames.contains('routes')) {
+                        const routeStore = database.createObjectStore('routes', { keyPath: 'id', autoIncrement: true });
+                        routeStore.createIndex('name', 'name', { unique: false });
+                        routeStore.createIndex('timestamp', 'timestamp', { unique: false });
+                    }
+
+                    // Places store
+                    if (!database.objectStoreNames.contains('places')) {
+                        const placeStore = database.createObjectStore('places', { keyPath: 'id', autoIncrement: true });
+                        placeStore.createIndex('name', 'name', { unique: false });
+                    }
+
+                    // Route mesh store (for the intelligent routing)
+                    if (!database.objectStoreNames.contains('mesh')) {
+                        database.createObjectStore('mesh', { keyPath: 'id' });
+                    }
+                };
+            });
+        }
+
+        // Generic DB operations
+        async function dbAdd(storeName, data) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, 'readwrite');
+                const store = transaction.objectStore(storeName);
+                const request = store.add(data);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function dbGetAll(storeName) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function dbDelete(storeName, id) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, 'readwrite');
+                const store = transaction.objectStore(storeName);
+                const request = store.delete(id);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function dbPut(storeName, data) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, 'readwrite');
+                const store = transaction.objectStore(storeName);
+                const request = store.put(data);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // ============================================
+        // Geolocation & Compass
+        // ============================================
+
+        async function checkPermissions() {
+            if (!navigator.geolocation) {
+                showToast('Geolocation not supported', 'error');
+                return false;
+            }
+
+            try {
+                const permission = await navigator.permissions.query({ name: 'geolocation' });
+                if (permission.state === 'granted') {
+                    elements.permissionPrompt.classList.remove('active');
+                    startLocationWatch();
+                    return true;
+                } else if (permission.state === 'prompt') {
+                    elements.permissionPrompt.classList.add('active');
+                    return false;
+                } else {
+                    showToast('Location permission denied', 'error');
+                    return false;
+                }
+            } catch (e) {
+                // Permissions API not supported, try direct access
+                elements.permissionPrompt.classList.add('active');
+                return false;
+            }
+        }
+
+        function requestLocation() {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    elements.permissionPrompt.classList.remove('active');
+                    startLocationWatch();
+                    updatePosition(position);
+                },
+                (error) => {
+                    showToast('Could not get location: ' + error.message, 'error');
+                },
+                { enableHighAccuracy: true }
+            );
+        }
+
+        function startLocationWatch() {
+            if (state.watchId) return;
+
+            state.watchId = navigator.geolocation.watchPosition(
+                updatePosition,
+                (error) => {
+                    console.error('Location error:', error);
+                    updateGPSStatus(null);
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 5000,
+                    timeout: 10000
+                }
+            );
+
+            // Start compass if available
+            if (window.DeviceOrientationEvent) {
+                // Check for iOS 13+ permission requirement
+                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    DeviceOrientationEvent.requestPermission()
+                        .then(response => {
+                            if (response === 'granted') {
+                                window.addEventListener('deviceorientation', handleOrientation);
+                            }
+                        })
+                        .catch(console.error);
+                } else {
+                    window.addEventListener('deviceorientation', handleOrientation);
+                }
+            }
+        }
+
+        function updatePosition(position) {
+            const { latitude, longitude, accuracy, heading, speed } = position.coords;
+            
+            state.currentPosition = {
+                lat: latitude,
+                lng: longitude,
+                accuracy: accuracy,
+                heading: heading,
+                speed: speed,
+                timestamp: position.timestamp
+            };
+
+            updateGPSStatus(accuracy);
+
+            // If recording, add point to route
+            if (state.isRecording) {
+                addRoutePoint(state.currentPosition);
+            }
+
+            // Update navigation if active
+            if (state.selectedDestination) {
+                updateNavigation();
+            }
+        }
+
+        function handleOrientation(event) {
+            // Get compass heading (webkitCompassHeading for iOS, alpha for others)
+            let heading = event.webkitCompassHeading || (360 - event.alpha);
+            
+            if (heading !== null && !isNaN(heading)) {
+                state.deviceHeading = heading;
+                
+                // Update compass if navigating
+                if (state.selectedDestination) {
+                    updateCompassArrow();
+                }
+            }
+        }
+
+        function updateGPSStatus(accuracy) {
+            if (accuracy === null) {
+                elements.gpsAccuracy.textContent = 'GPS: No signal';
+                elements.gpsAccuracy.className = 'gps-accuracy poor';
+                elements.statusDot.classList.remove('active');
+                elements.statusText.textContent = 'No GPS';
+                return;
+            }
+
+            let status, className;
+            if (accuracy < 10) {
+                status = 'Excellent';
+                className = 'good';
+            } else if (accuracy < 30) {
+                status = 'Good';
+                className = 'good';
+            } else if (accuracy < 100) {
+                status = 'Fair';
+                className = 'medium';
+            } else {
+                status = 'Poor';
+                className = 'poor';
+            }
+
+            elements.gpsAccuracy.textContent = `GPS: ${status} (±${Math.round(accuracy)}m)`;
+            elements.gpsAccuracy.className = `gps-accuracy ${className}`;
+            elements.statusDot.classList.add('active');
+            elements.statusText.textContent = state.isRecording ? 'Recording' : 'Ready';
+        }
+
+        // ============================================
+        // Route Recording
+        // ============================================
+
+        function startRecording() {
+            if (!state.currentPosition) {
+                showToast('Waiting for GPS signal...', 'error');
+                return;
+            }
+
+            state.isRecording = true;
+            state.currentRoute = [];
+            state.recordingStartTime = Date.now();
+
+            addRoutePoint(state.currentPosition);
+
+            elements.recordBtn.classList.add('recording');
+            elements.recordBtnText.textContent = 'Stop';
+            elements.statusText.textContent = 'Recording';
+
+            // Haptic feedback if available
+            if (navigator.vibrate) {
+                navigator.vibrate(100);
+            }
+
+            // Start duration timer
+            updateRecordingStats();
+            state.durationInterval = setInterval(updateRecordingStats, 1000);
+        }
+
+        function stopRecording() {
+            state.isRecording = false;
+            clearInterval(state.durationInterval);
+
+            elements.recordBtn.classList.remove('recording');
+            elements.recordBtnText.textContent = 'Start';
+            elements.statusText.textContent = 'Ready';
+
+            if (navigator.vibrate) {
+                navigator.vibrate([100, 50, 100]);
+            }
+
+            // Check if we have enough data
+            if (state.currentRoute.length < 5) {
+                showToast('Route too short to save', 'error');
+                resetRecordingStats();
+                return;
+            }
+
+            // Show save modal
+            elements.saveRouteModal.classList.add('active');
+            elements.routeNameInput.value = '';
+            elements.routeNameInput.focus();
+        }
+
+        function addRoutePoint(position) {
+            // Only add if moved enough (avoid clustering)
+            if (state.currentRoute.length > 0) {
+                const lastPoint = state.currentRoute[state.currentRoute.length - 1];
+                const distance = calculateDistance(
+                    lastPoint.lat, lastPoint.lng,
+                    position.lat, position.lng
+                );
+                
+                // Only add if moved at least 5 meters
+                if (distance < 5) return;
+            }
+
+            state.currentRoute.push({
+                lat: position.lat,
+                lng: position.lng,
+                accuracy: position.accuracy,
+                timestamp: Date.now()
+            });
+
+            updateRecordingStats();
+        }
+
+        function updateRecordingStats() {
+            // Distance
+            const distance = calculateRouteDistance(state.currentRoute);
+            elements.statDistance.textContent = (distance / 1000).toFixed(2);
+
+            // Duration
+            if (state.recordingStartTime) {
+                const duration = Date.now() - state.recordingStartTime;
+                elements.statDuration.textContent = formatDuration(duration);
+            }
+
+            // Points
+            elements.statPoints.textContent = state.currentRoute.length;
+        }
+
+        function resetRecordingStats() {
+            state.currentRoute = [];
+            state.recordingStartTime = null;
+            elements.statDistance.textContent = '0.0';
+            elements.statDuration.textContent = '0:00';
+            elements.statPoints.textContent = '0';
+        }
+
+        async function saveRoute(name) {
+            const route = {
+                name: name,
+                points: state.currentRoute,
+                distance: calculateRouteDistance(state.currentRoute),
+                duration: Date.now() - state.recordingStartTime,
+                timestamp: Date.now(),
+                startPoint: state.currentRoute[0],
+                endPoint: state.currentRoute[state.currentRoute.length - 1]
+            };
+
+            try {
+                await dbAdd('routes', route);
+                state.routes.push(route);
+                
+                // Update route mesh
+                await updateRouteMesh(route);
+                
+                showToast(`Route "${name}" saved!`, 'success');
+                renderRoutes();
+                updateDestinationDropdown();
+            } catch (e) {
+                showToast('Failed to save route', 'error');
+                console.error(e);
+            }
+
+            resetRecordingStats();
+            elements.saveRouteModal.classList.remove('active');
+        }
+
+        // ============================================
+        // Route Mesh Algorithm
+        // ============================================
+
+        async function updateRouteMesh(newRoute) {
+            // Get existing mesh or create new
+            let mesh = state.routeMesh || { nodes: [], edges: [] };
+
+            // Add start and end as nodes if not already present
+            const startNode = findOrCreateNode(mesh, newRoute.startPoint);
+            const endNode = findOrCreateNode(mesh, newRoute.endPoint);
+
+            // Find intersections with existing routes
+            for (const route of state.routes) {
+                if (route === newRoute) continue;
+                
+                const intersections = findIntersections(newRoute.points, route.points);
+                for (const intersection of intersections) {
+                    findOrCreateNode(mesh, intersection);
+                }
+            }
+
+            // Create edges between consecutive nodes along this route
+            const routeNodes = getNodesAlongRoute(mesh, newRoute);
+            for (let i = 0; i < routeNodes.length - 1; i++) {
+                const edge = {
+                    from: routeNodes[i].id,
+                    to: routeNodes[i + 1].id,
+                    distance: calculateDistance(
+                        routeNodes[i].lat, routeNodes[i].lng,
+                        routeNodes[i + 1].lat, routeNodes[i + 1].lng
+                    ),
+                    routeId: newRoute.id
+                };
+                
+                // Check if edge already exists
+                const existingEdge = mesh.edges.find(e => 
+                    (e.from === edge.from && e.to === edge.to) ||
+                    (e.from === edge.to && e.to === edge.from)
+                );
+                
+                if (!existingEdge) {
+                    mesh.edges.push(edge);
+                }
+            }
+
+            state.routeMesh = mesh;
+            await dbPut('mesh', { id: 'main', ...mesh });
+        }
+
+        function findOrCreateNode(mesh, point, threshold = 30) {
+            // Find existing node within threshold distance
+            for (const node of mesh.nodes) {
+                const dist = calculateDistance(node.lat, node.lng, point.lat, point.lng);
+                if (dist < threshold) {
+                    return node;
+                }
+            }
+
+            // Create new node
+            const node = {
+                id: `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                lat: point.lat,
+                lng: point.lng
+            };
+            mesh.nodes.push(node);
+            return node;
+        }
+
+        function findIntersections(route1, route2, threshold = 20) {
+            const intersections = [];
+            
+            for (const p1 of route1) {
+                for (const p2 of route2) {
+                    const dist = calculateDistance(p1.lat, p1.lng, p2.lat, p2.lng);
+                    if (dist < threshold) {
+                        // Check if we already have a nearby intersection
+                        const nearby = intersections.some(i => 
+                            calculateDistance(i.lat, i.lng, p1.lat, p1.lng) < threshold
+                        );
+                        if (!nearby) {
+                            intersections.push({
+                                lat: (p1.lat + p2.lat) / 2,
+                                lng: (p1.lng + p2.lng) / 2
+                            });
+                        }
+                    }
+                }
+            }
+            
+            return intersections;
+        }
+
+        function getNodesAlongRoute(mesh, route) {
+            const nodes = [];
+            const threshold = 30;
+
+            // Start node
+            const startNode = mesh.nodes.find(n => 
+                calculateDistance(n.lat, n.lng, route.startPoint.lat, route.startPoint.lng) < threshold
+            );
+            if (startNode) nodes.push(startNode);
+
+            // Find nodes along the route (in order)
+            for (const point of route.points) {
+                const nearNode = mesh.nodes.find(n => {
+                    if (nodes.includes(n)) return false;
+                    return calculateDistance(n.lat, n.lng, point.lat, point.lng) < threshold;
+                });
+                if (nearNode) nodes.push(nearNode);
+            }
+
+            return nodes;
+        }
+
+        // Dijkstra's algorithm for finding optimal path
+        function findOptimalPath(mesh, startPlace, endPlace) {
+            if (!mesh || !mesh.nodes.length) return null;
+
+            // Find closest nodes to start and end places
+            const startNode = findClosestNode(mesh, startPlace);
+            const endNode = findClosestNode(mesh, endPlace);
+
+            if (!startNode || !endNode) return null;
+
+            // Dijkstra's algorithm
+            const distances = {};
+            const previous = {};
+            const unvisited = new Set();
+
+            for (const node of mesh.nodes) {
+                distances[node.id] = Infinity;
+                previous[node.id] = null;
+                unvisited.add(node.id);
+            }
+            distances[startNode.id] = 0;
+
+            while (unvisited.size > 0) {
+                // Find unvisited node with smallest distance
+                let current = null;
+                let minDist = Infinity;
+                for (const nodeId of unvisited) {
+                    if (distances[nodeId] < minDist) {
+                        minDist = distances[nodeId];
+                        current = nodeId;
+                    }
+                }
+
+                if (current === null || current === endNode.id) break;
+                unvisited.delete(current);
+
+                // Update distances to neighbors
+                const neighbors = mesh.edges.filter(e => e.from === current || e.to === current);
+                for (const edge of neighbors) {
+                    const neighborId = edge.from === current ? edge.to : edge.from;
+                    if (!unvisited.has(neighborId)) continue;
+
+                    const newDist = distances[current] + edge.distance;
+                    if (newDist < distances[neighborId]) {
+                        distances[neighborId] = newDist;
+                        previous[neighborId] = current;
+                    }
+                }
+            }
+
+            // Reconstruct path
+            const path = [];
+            let current = endNode.id;
+            while (current !== null) {
+                const node = mesh.nodes.find(n => n.id === current);
+                if (node) path.unshift(node);
+                current = previous[current];
+            }
+
+            return path.length > 1 ? path : null;
+        }
+
+        function findClosestNode(mesh, place) {
+            let closest = null;
+            let minDist = Infinity;
+
+            for (const node of mesh.nodes) {
+                const dist = calculateDistance(node.lat, node.lng, place.lat, place.lng);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closest = node;
+                }
+            }
+
+            return minDist < 100 ? closest : null; // Only if within 100m
+        }
+
+        // ============================================
+        // Navigation
+        // ============================================
+
+        function startNavigation(placeId) {
+            const place = state.places.find(p => p.id === placeId);
+            if (!place) return;
+
+            state.selectedDestination = place;
+
+            elements.noDestination.classList.add('hidden');
+            elements.compass.classList.remove('hidden');
+            elements.navInfo.classList.remove('hidden');
+            elements.navDestination.textContent = `→ ${place.name}`;
+
+            // Haptic feedback
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+
+            updateNavigation();
+        }
+
+        function stopNavigation() {
+            state.selectedDestination = null;
+            elements.destinationSelect.value = '';
+            elements.noDestination.classList.remove('hidden');
+            elements.compass.classList.add('hidden');
+            elements.navInfo.classList.add('hidden');
+        }
+
+        function updateNavigation() {
+            if (!state.selectedDestination || !state.currentPosition) return;
+
+            const dest = state.selectedDestination;
+            const current = state.currentPosition;
+
+            // Calculate distance
+            const distance = calculateDistance(current.lat, current.lng, dest.lat, dest.lng);
+
+            // Update distance display
+            if (distance >= 1000) {
+                elements.navDistanceValue.textContent = (distance / 1000).toFixed(1);
+                elements.navDistanceUnit.textContent = 'km';
+            } else {
+                elements.navDistanceValue.textContent = Math.round(distance);
+                elements.navDistanceUnit.textContent = 'm';
+            }
+
+            // Calculate bearing to destination
+            const bearing = calculateBearing(current.lat, current.lng, dest.lat, dest.lng);
+
+            // Update ETA (assuming 5 km/h walking speed)
+            const walkingSpeed = 5; // km/h
+            const etaMinutes = (distance / 1000) / walkingSpeed * 60;
+            elements.navEta.textContent = `ETA: ${Math.round(etaMinutes)} min`;
+
+            // Store bearing for compass update
+            state.targetBearing = bearing;
+            updateCompassArrow();
+
+            // Check if arrived
+            if (distance < 20) {
+                if (navigator.vibrate) {
+                    navigator.vibrate([200, 100, 200, 100, 200]);
+                }
+                showToast(`You've arrived at ${dest.name}!`, 'success');
+                stopNavigation();
+            }
+        }
+
+        function updateCompassArrow() {
+            if (!state.targetBearing) return;
+
+            // Calculate arrow rotation
+            // Arrow should point to destination relative to device heading
+            let rotation = state.targetBearing;
+            
+            if (state.deviceHeading !== null) {
+                rotation = state.targetBearing - state.deviceHeading;
+            }
+
+            // Normalize to 0-360
+            rotation = ((rotation % 360) + 360) % 360;
+
+            elements.compassArrow.style.transform = `rotate(${rotation}deg)`;
+        }
+
+        // ============================================
+        // Places Management
+        // ============================================
+
+        async function savePlace(name) {
+            if (!state.currentPosition) {
+                showToast('Waiting for GPS...', 'error');
+                return;
+            }
+
+            const place = {
+                name: name,
+                lat: state.currentPosition.lat,
+                lng: state.currentPosition.lng,
+                timestamp: Date.now()
+            };
+
+            try {
+                const id = await dbAdd('places', place);
+                place.id = id;
+                state.places.push(place);
+                
+                showToast(`Place "${name}" saved!`, 'success');
+                renderPlaces();
+                updateDestinationDropdown();
+            } catch (e) {
+                showToast('Failed to save place', 'error');
+                console.error(e);
+            }
+
+            elements.savePlaceModal.classList.remove('active');
+        }
+
+        async function deletePlace(id) {
+            try {
+                await dbDelete('places', id);
+                state.places = state.places.filter(p => p.id !== id);
+                renderPlaces();
+                updateDestinationDropdown();
+                showToast('Place deleted', 'success');
+            } catch (e) {
+                showToast('Failed to delete place', 'error');
+            }
+        }
+
+        async function deleteRoute(id) {
+            try {
+                await dbDelete('routes', id);
+                state.routes = state.routes.filter(r => r.id !== id);
+                renderRoutes();
+                showToast('Route deleted', 'success');
+            } catch (e) {
+                showToast('Failed to delete route', 'error');
+            }
+        }
+
+        // ============================================
+        // Utility Functions
+        // ============================================
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000; // Earth's radius in meters
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = 
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            const dLon = toRad(lon2 - lon1);
+            const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+            const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+                      Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+            let bearing = Math.atan2(y, x);
+            bearing = toDeg(bearing);
+            return (bearing + 360) % 360;
+        }
+
+        function toRad(deg) {
+            return deg * (Math.PI / 180);
+        }
+
+        function toDeg(rad) {
+            return rad * (180 / Math.PI);
+        }
+
+        function calculateRouteDistance(points) {
+            let total = 0;
+            for (let i = 1; i < points.length; i++) {
+                total += calculateDistance(
+                    points[i - 1].lat, points[i - 1].lng,
+                    points[i].lat, points[i].lng
+                );
+            }
+            return total;
+        }
+
+        function formatDuration(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            
+            if (hours > 0) {
+                return `${hours}:${String(minutes % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+            }
+            return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
+        }
+
+        function formatDate(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            });
+        }
+
+        function showToast(message, type = 'success') {
+            elements.toast.textContent = message;
+            elements.toast.className = `toast ${type} show`;
+            
+            setTimeout(() => {
+                elements.toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // ============================================
+        // UI Rendering
+        // ============================================
+
+        function renderRoutes() {
+            const list = elements.routeList;
+            
+            if (state.routes.length === 0) {
+                elements.routesEmpty.style.display = 'block';
+                elements.routesCount.textContent = '0 routes';
+                return;
+            }
+
+            elements.routesEmpty.style.display = 'none';
+            elements.routesCount.textContent = `${state.routes.length} route${state.routes.length !== 1 ? 's' : ''}`;
+
+            // Clear existing (except empty state)
+            const cards = list.querySelectorAll('.route-card');
+            cards.forEach(card => card.remove());
+
+            // Sort by date (newest first)
+            const sortedRoutes = [...state.routes].sort((a, b) => b.timestamp - a.timestamp);
+
+            for (const route of sortedRoutes) {
+                const card = document.createElement('div');
+                card.className = 'route-card';
+                card.innerHTML = `
+                    <div class="route-card-header">
+                        <span class="route-name">${escapeHtml(route.name)}</span>
+                        <span class="route-date">${formatDate(route.timestamp)}</span>
+                    </div>
+                    <div class="route-meta">
+                        <span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2L12 22M2 12L22 12"/>
+                            </svg>
+                            ${(route.distance / 1000).toFixed(2)} km
+                        </span>
+                        <span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 6L12 12L16 14"/>
+                            </svg>
+                            ${formatDuration(route.duration)}
+                        </span>
+                        <span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            ${route.points.length} pts
+                        </span>
+                    </div>
+                `;
+                
+                card.addEventListener('click', () => {
+                    if (confirm(`Delete route "${route.name}"?`)) {
+                        deleteRoute(route.id);
+                    }
+                });
+                
+                list.appendChild(card);
+            }
+        }
+
+        function renderPlaces() {
+            const list = elements.placeList;
+            
+            if (state.places.length === 0) {
+                elements.placesEmpty.style.display = 'block';
+                return;
+            }
+
+            elements.placesEmpty.style.display = 'none';
+
+            // Clear existing (except empty state)
+            const cards = list.querySelectorAll('.place-card');
+            cards.forEach(card => card.remove());
+
+            for (const place of state.places) {
+                // Count routes that pass through this place
+                const routeCount = countRoutesForPlace(place);
+
+                const card = document.createElement('div');
+                card.className = 'place-card';
+                card.innerHTML = `
+                    <div class="place-info">
+                        <div class="place-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                <circle cx="12" cy="10" r="3"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="place-name">${escapeHtml(place.name)}</div>
+                            <div class="place-routes">${routeCount} route${routeCount !== 1 ? 's' : ''} nearby</div>
+                        </div>
+                    </div>
+                    <div class="place-actions">
+                        <button class="place-action-btn nav-btn" title="Navigate">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+                            </svg>
+                        </button>
+                        <button class="place-action-btn danger delete-btn" title="Delete">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+
+                card.querySelector('.nav-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    document.querySelector('[data-view="navigate"]').click();
+                    elements.destinationSelect.value = place.id;
+                    startNavigation(place.id);
+                });
+
+                card.querySelector('.delete-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (confirm(`Delete place "${place.name}"?`)) {
+                        deletePlace(place.id);
+                    }
+                });
+
+                list.appendChild(card);
+            }
+        }
+
+        function countRoutesForPlace(place) {
+            let count = 0;
+            const threshold = 50; // meters
+
+            for (const route of state.routes) {
+                // Check if any point in the route is near this place
+                const isNear = route.points.some(point => 
+                    calculateDistance(point.lat, point.lng, place.lat, place.lng) < threshold
+                );
+                if (isNear) count++;
+            }
+
+            return count;
+        }
+
+        function updateDestinationDropdown() {
+            const select = elements.destinationSelect;
+            
+            // Clear existing options (except first)
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+
+            // Add places
+            for (const place of state.places) {
+                const option = document.createElement('option');
+                option.value = place.id;
+                option.textContent = place.name;
+                select.appendChild(option);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ============================================
+        // Event Listeners
+        // ============================================
+
+        function setupEventListeners() {
+            // Permission grant
+            elements.grantPermission.addEventListener('click', requestLocation);
+
+            // Tab navigation
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+                    
+                    tab.classList.add('active');
+                    document.getElementById(`${tab.dataset.view}View`).classList.add('active');
+                });
+            });
+
+            // Record button
+            elements.recordBtn.addEventListener('click', () => {
+                if (state.isRecording) {
+                    stopRecording();
+                } else {
+                    startRecording();
+                }
+            });
+
+            // Save route modal
+            document.getElementById('cancelSaveRoute').addEventListener('click', () => {
+                elements.saveRouteModal.classList.remove('active');
+                resetRecordingStats();
+            });
+
+            document.getElementById('confirmSaveRoute').addEventListener('click', () => {
+                const name = elements.routeNameInput.value.trim();
+                if (name) {
+                    saveRoute(name);
+                } else {
+                    showToast('Please enter a route name', 'error');
+                }
+            });
+
+            // Add place button
+            elements.addPlaceBtn.addEventListener('click', () => {
+                if (!state.currentPosition) {
+                    showToast('Waiting for GPS...', 'error');
+                    return;
+                }
+                elements.savePlaceModal.classList.add('active');
+                elements.placeNameInput.value = '';
+                elements.placeNameInput.focus();
+            });
+
+            // Save place modal
+            document.getElementById('cancelSavePlace').addEventListener('click', () => {
+                elements.savePlaceModal.classList.remove('active');
+            });
+
+            document.getElementById('confirmSavePlace').addEventListener('click', () => {
+                const name = elements.placeNameInput.value.trim();
+                if (name) {
+                    savePlace(name);
+                } else {
+                    showToast('Please enter a place name', 'error');
+                }
+            });
+
+            // Destination select
+            elements.destinationSelect.addEventListener('change', (e) => {
+                const placeId = parseInt(e.target.value);
+                if (placeId) {
+                    startNavigation(placeId);
+                } else {
+                    stopNavigation();
+                }
+            });
+
+            // Close modals on overlay click
+            document.querySelectorAll('.modal-overlay').forEach(overlay => {
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) {
+                        overlay.classList.remove('active');
+                    }
+                });
+            });
+
+            // Enter key on inputs
+            elements.routeNameInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('confirmSaveRoute').click();
+                }
+            });
+
+            elements.placeNameInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('confirmSavePlace').click();
+                }
+            });
+        }
+
+        // ============================================
+        // Initialization
+        // ============================================
+
+        async function init() {
+            try {
+                // Initialize database
+                await initDB();
+
+                // Load saved data
+                state.routes = await dbGetAll('routes');
+                state.places = await dbGetAll('places');
+                
+                // Try to load mesh
+                try {
+                    const meshData = await new Promise((resolve, reject) => {
+                        const transaction = db.transaction('mesh', 'readonly');
+                        const store = transaction.objectStore('mesh');
+                        const request = store.get('main');
+                        request.onsuccess = () => resolve(request.result);
+                        request.onerror = () => reject(request.error);
+                    });
+                    if (meshData) {
+                        state.routeMesh = meshData;
+                    }
+                } catch (e) {
+                    console.log('No existing mesh');
+                }
+
+                // Render UI
+                renderRoutes();
+                renderPlaces();
+                updateDestinationDropdown();
+
+                // Setup event listeners
+                setupEventListeners();
+
+                // Check permissions
+                await checkPermissions();
+
+                console.log('PathMem initialized');
+            } catch (e) {
+                console.error('Init failed:', e);
+                showToast('Failed to initialize app', 'error');
+            }
+        }
+
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(() => console.log('Service Worker registered'))
+                .catch(err => console.error('SW registration failed:', err));
+        }
+
+        // Start app
+        init();
+    </script>
+</body>
+</html>
